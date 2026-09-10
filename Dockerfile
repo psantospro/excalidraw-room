@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
-# Cliente Excalidraw customizado, apontando a colaboracao para o seu proprio servidor.
-# Uso: crie um repositorio GitHub com este Dockerfile e importe no EasyPanel (Source: GitHub, Dockerfile).
+# Cliente Excalidraw customizado:
+#  - aponta a colaboracao para o seu proprio servidor (VITE_APP_WS_SERVER_URL)
+#  - protege o acesso com Basic Auth (defina BASIC_AUTH_USER e BASIC_AUTH_PASSWORD)
+# Uso: repositorio GitHub com este Dockerfile -> EasyPanel (Source: GitHub, Build: Dockerfile).
 
 FROM node:24-bookworm AS build
 
@@ -23,5 +25,51 @@ RUN corepack enable \
  && yarn build:app:docker
 
 FROM nginx:stable-alpine-slim
+
+# htpasswd vem no pacote apache2-utils
+RUN apk add --no-cache apache2-utils
+
 COPY --from=build /opt/app/excalidraw-app/build /usr/share/nginx/html
-HEALTHCHECK CMD wget -q -O /dev/null http://localhost || exit 1
+
+# Config do nginx com include do arquivo de auth (gerado no start)
+RUN cat > /etc/nginx/conf.d/default.conf <<'NGINX'
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    include /etc/nginx/excalidraw-auth.conf;
+
+    location = /healthz {
+        auth_basic off;
+        access_log off;
+        return 200 "ok";
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+NGINX
+
+# Script que roda no start do nginx e gera o .htpasswd a partir das variaveis de ambiente
+RUN cat > /docker-entrypoint.d/40-excalidraw-auth.sh <<'SH'
+#!/bin/sh
+set -e
+
+AUTH_CONF=/etc/nginx/excalidraw-auth.conf
+HTPASSWD=/etc/nginx/.htpasswd
+
+if [ -n "$BASIC_AUTH_USER" ] && [ -n "$BASIC_AUTH_PASSWORD" ]; then
+  htpasswd -Bbc "$HTPASSWD" "$BASIC_AUTH_USER" "$BASIC_AUTH_PASSWORD"
+  printf 'auth_basic "Restricted";\nauth_basic_user_file %s;\n' "$HTPASSWD" > "$AUTH_CONF"
+  echo "[basic-auth] habilitado para o usuario '$BASIC_AUTH_USER'"
+else
+  : > "$AUTH_CONF"
+  echo "[basic-auth] desabilitado (defina BASIC_AUTH_USER e BASIC_AUTH_PASSWORD)"
+fi
+SH
+RUN chmod +x /docker-entrypoint.d/40-excalidraw-auth.sh
+
+HEALTHCHECK CMD wget -q -O /dev/null http://localhost/healthz || exit 1
