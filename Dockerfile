@@ -18,7 +18,7 @@ WORKDIR /opt/app
 # >>> URL do SEU servidor de colaboracao (obrigatoriamente wss:// em producao) <<<
 ENV VITE_APP_WS_SERVER_URL=wss://room.srgeek.com.br
 
-RUN npm install -g yarn@1.22.22 \
+RUN corepack enable \
  && yarn install --frozen-lockfile --network-timeout 600000 \
  && yarn build:app:docker
 
