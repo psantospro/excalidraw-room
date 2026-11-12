@@ -4,7 +4,7 @@
 #  - protege o acesso com Basic Auth (defina BASIC_AUTH_USER e BASIC_AUTH_PASSWORD)
 # Uso: repositorio GitHub com este Dockerfile -> EasyPanel (Source: GitHub, Build: Dockerfile).
 
-FROM node:24-bookworm AS build
+FROM node:22-bookworm AS build
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
@@ -12,7 +12,7 @@ RUN apt-get update \
 
 WORKDIR /opt
 # Fixe uma tag/release se quiser builds reproduziveis: --build-arg EXCALIDRAW_REF=v0.18.0
-ARG EXCALIDRAW_REF=master
+ARG EXCALIDRAW_REF=v0.18.1
 RUN git clone --depth 1 --branch "${EXCALIDRAW_REF}" https://github.com/excalidraw/excalidraw.git app
 
 WORKDIR /opt/app
@@ -35,6 +35,7 @@ COPY --from=build /opt/app/excalidraw-app/build /usr/share/nginx/html
 RUN cat > /etc/nginx/conf.d/default.conf <<'NGINX'
 server {
     listen 80;
+    listen [::]:80;
     server_name _;
     root /usr/share/nginx/html;
     index index.html;
@@ -72,4 +73,5 @@ fi
 SH
 RUN chmod +x /docker-entrypoint.d/40-excalidraw-auth.sh
 
-HEALTHCHECK CMD wget -q -O /dev/null http://localhost/healthz || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1/healthz || exit 1
