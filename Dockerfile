@@ -17,6 +17,11 @@ RUN git clone --depth 1 --branch "${EXCALIDRAW_REF}" https://github.com/excalidr
 
 WORKDIR /opt/app
 
+# Ponte de agente: expoe window.__EXC (updateScene/getSceneElements) para automacao.
+# O script falha o build se o anchor sumir no upstream.
+COPY patch-expose-api.mjs /opt/patch-expose-api.mjs
+RUN node /opt/patch-expose-api.mjs
+
 # >>> URL do SEU servidor de colaboracao (obrigatoriamente wss:// em producao) <<<
 ENV VITE_APP_WS_SERVER_URL=wss://room.srgeek.com.br
 
