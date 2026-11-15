@@ -41,10 +41,9 @@
 
     const title = (spec.title || "").trim();
     if (title) {
-      const w = textW([title], 20) * 1.4;
-      els.push(el("text", X + (W - w) / 2, Y0 - 48, w, textH(1, 20), {
+      els.push(el("text", X, Y0 - 48, W, textH(1, 20), {
         text: title, originalText: title, fontSize: 20, fontFamily: 1,
-        textAlign: "left", verticalAlign: "top", containerId: null, lineHeight: LH,
+        textAlign: "center", verticalAlign: "top", containerId: null, lineHeight: LH,
       }));
     }
 
@@ -57,9 +56,8 @@
       }));
       const label = /^\d+[.)]\s/.test(s.label || "") ? s.label : `${i + 1}. ${s.label || ""}`;
       const lines = [label, s.detail || ""].filter(Boolean);
-      const w = textW(lines, FS);
       const h = textH(lines.length, FS);
-      els.push(el("text", X + (W - w) / 2, ys[i] + (H - h) / 2, w, h, {
+      els.push(el("text", X + 8, ys[i] + (H - h) / 2, W - 16, h, {
         id: tid,
         text: lines.join("\n"), originalText: lines.join("\n"),
         fontSize: FS, fontFamily: 1, textAlign: "center", verticalAlign: "middle",
