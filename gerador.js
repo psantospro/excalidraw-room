@@ -104,10 +104,37 @@
     return els;
   }
 
+  // ---------- historico local (protege contra geracao que substitui tudo) ----------
+  const HIST = "__G_hist_v1";
+
+  function readHist() {
+    try { return JSON.parse(localStorage.getItem(HIST) || "[]"); } catch { return []; }
+  }
+
+  function pushHist() {
+    const api = window.__EXC;
+    if (!api) return;
+    const items = readHist();
+    items.push({
+      t: Date.now(),
+      elements: api.getSceneElements(),
+      appState: { viewBackgroundColor: api.getAppState().viewBackgroundColor },
+    });
+    localStorage.setItem(HIST, JSON.stringify(items.slice(-5)));
+  }
+
+  function popHist() {
+    const items = readHist();
+    const last = items.pop() || null;
+    localStorage.setItem(HIST, JSON.stringify(items));
+    return last;
+  }
+
   function apply(spec) {
     const api = window.__EXC;
     if (!api) throw new Error("ponte __EXC ausente");
     if (!spec.steps || !spec.steps.length) throw new Error("nenhum passo");
+    pushHist();
     const els = layout(spec);
     api.updateScene({
       elements: els,
@@ -214,6 +241,7 @@
       <button id="__G_ai" style="flex:1;padding:8px;border-radius:8px;border:none;background:#6965db;color:#fff;font-weight:600;cursor:pointer">Gerar com IA</button>
       <button id="__G_plain" style="padding:8px;border-radius:8px;border:1px solid #3a3a44;background:transparent;color:#e6e6e6;cursor:pointer">Sem IA</button>
     </div>
+    <button id="__G_back" style="margin-top:8px;width:100%;padding:7px;border-radius:8px;border:1px solid #3a3a44;background:transparent;color:#b9b9c6;cursor:pointer;font-size:12px">Voltar versão anterior</button>
     <div id="__G_msg" style="margin-top:8px;opacity:.75;min-height:18px"></div>
   `;
 
@@ -228,6 +256,19 @@
   panel.querySelector("#__G_plain").addEventListener("click", () => {
     try {
       say(`desenhado (${apply(parseText(txt.value || ""))} elementos)`);
+    } catch (e) { say("erro: " + e.message); }
+  });
+
+  panel.querySelector("#__G_back").addEventListener("click", () => {
+    const prev = popHist();
+    if (!prev) { say("não há versão anterior"); return; }
+    try {
+      window.__EXC.updateScene({
+        elements: prev.elements,
+        appState: prev.appState,
+        captureUpdate: "IMMEDIATELY",
+      });
+      say(`versão de ${new Date(prev.t).toLocaleTimeString("pt-BR")} restaurada`);
     } catch (e) { say("erro: " + e.message); }
   });
 
