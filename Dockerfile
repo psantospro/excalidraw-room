@@ -29,10 +29,20 @@ RUN corepack enable \
  && yarn install --frozen-lockfile --network-timeout 600000 \
  && yarn build:app:docker
 
+# Painel "Texto -> diagrama": script estatico + uma tag no index.html do build.
+COPY gerador.js /opt/gerador.js
+COPY inject-gerador.mjs /opt/inject-gerador.mjs
+RUN cp /opt/gerador.js excalidraw-app/build/gerador.js \
+ && node /opt/inject-gerador.mjs
+
 FROM nginx:stable-alpine-slim
 
 # htpasswd vem no pacote apache2-utils
 RUN apk add --no-cache apache2-utils
+
+# Atalho /api/ai: a chave do provedor fica no servidor, nunca no navegador.
+COPY 50-excalidraw-ai.sh /docker-entrypoint.d/50-excalidraw-ai.sh
+RUN chmod +x /docker-entrypoint.d/50-excalidraw-ai.sh
 
 COPY --from=build /opt/app/excalidraw-app/build /usr/share/nginx/html
 
@@ -46,6 +56,7 @@ server {
     index index.html;
 
     include /etc/nginx/excalidraw-auth.conf;
+    include /etc/nginx/ai.conf;
 
     location = /healthz {
         auth_basic off;
